@@ -1,98 +1,110 @@
-🧭 Responsible AI Checklist
-Project: Haldiram's Underperforming Product Predictor
-Version: 1.0 | Date: 2025-10-15
-Owners: Data Science, Product Management, Marketing
+# 🧭 Responsible AI Checklist  
+**Project:** Haldiram's Underperforming Product Predictor  
+**Version:** 1.0 | **Date:** 2025-10-15  
+**Owners:** Data Science, Product Management, Marketing  
 
-1️⃣ Purpose & Scope
-Goal: Predict if a product is likely to be Underperforming or Not Underperforming.
+---
 
-Use Case: Internal analytics for product management, marketing strategy, and inventory planning.
+## 1️⃣ Purpose & Scope  
 
-Not for: Making automated decisions about pricing, delisting products, or any decisions that directly impact customers or suppliers without human review.
+**Goal:** Predict if a product is likely to be *Underperforming* or *Not Underperforming*.  
 
-2️⃣ Data Governance
-✅ No personal identifiers (name, phone, address, email) are used.
+**Use Case:**  
+- Internal analytics for product management, marketing strategy, and inventory planning.  
 
-✅ Columns are limited to public product metadata (rating, price_whole, category_reclassified, etc.) and aggregated sales/review counts.
+**Not for:**  
+- Automated decisions about pricing, delisting products, or any decisions directly impacting customers or suppliers without human review.  
 
-✅ A representative dataset sample is documented in artifacts/reference_sample.csv.
+---
 
-✅ Model artifacts are versioned and tracked using MLflow and stored in a Git repository.
+## 2️⃣ Data Governance  
 
-3️⃣ Fairness
-Sensitive Attributes
-Primary: category_reclassified (grouped into Gift/Combo vs. Other for audit).
+✅ No personal identifiers (name, phone, address, email) are used.  
+✅ Columns limited to public product metadata (`rating`, `price_whole`, `category_reclassified`, etc.) and aggregated sales/review counts.  
+✅ Representative dataset sample documented in `artifacts/reference_sample.csv`.  
+✅ Model artifacts versioned and tracked using **MLflow**, stored in a **Git repository**.  
 
-Rationale: To ensure the model does not unfairly penalize specific product categories, such as seasonal gift packs.
+---
 
-Metrics
-Demographic Parity Difference: ≤ 0.15
+## 3️⃣ Fairness  
 
-Equalized Odds Difference: ≤ 0.15
+**Sensitive Attributes:**  
+- Primary: `category_reclassified` (grouped into *Gift/Combo* vs. *Other* for audit).  
 
-Action:
+**Rationale:**  
+Ensure the model does not unfairly penalize specific product categories (e.g., seasonal gift packs).  
 
-Green ≤ 0.15 → ✅ Fair
+**Metrics:**  
+| Metric | Threshold | Meaning |
+|---------|------------|----------|
+| Demographic Parity Difference | ≤ 0.15 | ✅ Fair |
+| Equalized Odds Difference | ≤ 0.15 | ✅ Fair |
 
-Amber 0.15–0.25 → ⚠️ Review Required
+**Action Guide:**  
+- **Green ≤ 0.15** → ✅ Fair  
+- **Amber 0.15–0.25** → ⚠️ Review Required  
+- **Red > 0.25** → ❌ Mitigation Needed  
 
-Red > 0.25 → ❌ Mitigation Needed
+**Mitigation Strategies:**  
+- **Pre-processing:** Reweight samples during training to emphasize underrepresented categories.  
+- **In-processing:** Use **Fairlearn ExponentiatedGradient** to optimize accuracy + fairness.  
+- **Post-processing:** Adjust prediction thresholds per category group to equalize error rates.  
 
-Mitigation
-Pre-processing: Reweight samples during training to give more importance to underrepresented product categories.
+**Monitoring:**  
+- Run quarterly fairness audits in the *⚖️ Fairness Audit* tab (Streamlit dashboard).  
+- Trigger alerts if demographic parity difference > 0.25 in production.  
 
-In-processing: Use Fairlearn algorithms like ExponentiatedGradient to train a model that optimizes for both accuracy and fairness.
+---
 
-Post-processing: Apply different prediction thresholds for each product category group to equalize error rates.
+## 4️⃣ Explainability  
 
-Monitoring
-Run a quarterly fairness audit using the "⚖️ Fairness Audit" tab in the Streamlit dashboard.
+- **Global Explainability:** SHAP summary plots showing top factors influencing underperformance.  
+- **Local Explainability:** LIME explanations for individual predictions.  
+- SHAP visualizations available in the *🔎 SHAP Explanations* tab of the Streamlit dashboard.  
 
-Set up alerts if the demographic parity difference exceeds 0.25 in production monitoring.
+**Disclaimer:**  
+> Explanations are statistical approximations based on the model’s learned patterns and do not represent direct causal relationships.  
 
-4️⃣ Explainability
-Global explainability is provided via a SHAP summary plot to show the main drivers of underperformance across all products.
+---
 
-Local explainability for individual predictions is provided via LIME.
+## 5️⃣ Privacy & Consent  
 
-SHAP visualizations are available in the "🔎 SHAP Explanations" tab of the Streamlit dashboard.
+- **PII:** None used or stored.  
+- `review_text` column excluded from modeling to avoid processing user-generated content.  
+- **Consent:** Data sourced from public listings and aggregated sales data — ethical and standard for internal analytics.  
+- **Access:** Controlled via GitHub repository permissions; internal API only.  
+- **Secrets:** None required for model operation.  
 
-Each explanation includes a disclaimer:
+---
 
-Explanations are statistical approximations based on the model's learned patterns and do not represent direct causal relationships.
+## 6️⃣ Drift & Monitoring  
 
-5️⃣ Privacy & Consent
-PII: None used or stored. The review_text column was not used for modeling to avoid processing user-generated content.
+**Metrics Tracked:**  
+- **PSI (Population Stability Index)**  
+- **Kolmogorov–Smirnov (KS) Test**  
 
-Consent: Data is derived from public product listings and aggregated sales data. The use of this data for internal analytics is standard and ethical.
+**Thresholds:**  
+| PSI Value | Drift Level | Action |
+|------------|--------------|--------|
+| ≥ 0.2 | 🔴 High Drift | Retraining recommended |
+| 0.1–0.2 | 🟠 Medium Drift | Monitor closely |
+| < 0.1 | 🟢 Stable | No action needed |
 
-Access: Controlled via GitHub repository permissions. The deployed API is for internal use only.
+Drift metrics visualized in *🌊 Data Drift* tab (Streamlit dashboard).  
 
-Secrets: No secrets or API keys are required for this model's operation.
+---
 
-6️⃣ Drift & Monitoring
-Drift is tracked using PSI (Population Stability Index) and the Kolmogorov-Smirnov (KS) test in the Streamlit "🌊 Data Drift" tab.
+## 7️⃣ Safety & Misuse Prevention  
 
-Heuristic thresholds for alerting:
+- Predictions used **only for internal dashboards** to support human decision-making.  
+- Model outputs a **risk score** — a recommendation, not an automated decision.  
+- Human validation (Product Manager) required before any action (e.g., campaign, inventory adjustment).  
+- API and dashboard restricted to **internal access only**.  
 
-PSI ≥ 0.2 → High Drift (retraining may be required)
+---
 
-PSI 0.1–0.2 → Medium Drift (monitor closely)
+## 8️⃣ Responsible Deployment  
 
-PSI < 0.1 → Stable
-
-7️⃣ Safety & Misuse Prevention
-Predictions are for internal dashboards only to support human decision-making.
-
-The model's output (a risk score) is a recommendation, not an automated action.
-
-Human validation is required by a product manager before any action (e.g., a marketing campaign, inventory adjustment) is taken based on a prediction.
-
-Misuse prevention is handled by keeping the API and dashboard for internal access only.
-
-8️⃣ Responsible Deployment
-✅ All tests (pytest) and lint checks (flake8) passed in the GitHub Actions CI/CD pipeline.
-
-✅ No PII is included in any saved model artifacts.
-
-✅ Fairness metrics were within defined thresholds during the final
+✅ All **pytest** and **flake8** checks passed via GitHub Actions CI/CD.  
+✅ No PII included in saved model artifacts.  
+✅ Fairness metrics within defined thresholds at final deployment.  
