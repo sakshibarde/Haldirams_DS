@@ -1,9 +1,0 @@
-streamlit
-pandas
-scikit-learn==1.6.1
-matplotlib
-shap
-<<<<<<< HEAD
-seaborn
-=======
->>>>>>> f41b906f3791b630189b433dce289396abc426d8

@@ -1,9 +1,0 @@
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-scikit-learn==1.6.1
-pandas==2.2.2
-pydantic==2.7.1
-shap
-streamlit
-matplotlib
-seaborn

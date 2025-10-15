@@ -1,9 +1,0 @@
-streamlit
-pandas
-streamlit
-pandas
-scikit-learn==1.6.1
-matplotlib
-matplotlib
-shap
-seaborn
