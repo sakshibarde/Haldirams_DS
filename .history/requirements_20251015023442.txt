@@ -6,4 +6,3 @@ pydantic==2.7.1
 shap
 streamlit
 matplotlib
-seaborn

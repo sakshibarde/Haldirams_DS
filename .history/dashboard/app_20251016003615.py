@@ -203,48 +203,6 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
             st.pyplot(fig, clear_figure=True)
             st.caption("Inference: If higher prices correlate with higher/lower ratings, pricing strategy may need revision.")
 
-        # Optional: show provided EDA images from artifacts/eda with short inferences
-        try:
-            eda_img_dir = os.path.join(ART_DIR, "eda")
-            img_specs = [
-                {
-                    "file": "correlation_heatmap.png",
-                    "title": "Correlation Heatmap",
-                    "inference": (
-                        "- Strong positive tie between `price_whole` and `mrp` (≈0.97).\n"
-                        "- Discount% shows mild negative relation with price (≈-0.4 range).\n"
-                        "- Ratings weakly related to other numerics — mostly independent."
-                    ),
-                },
-                {
-                    "file": "histograms.png",
-                    "title": "Histograms of Key Numeric Features",
-                    "inference": (
-                        "- Ratings cluster near 4.0 → mostly high ratings.\n"
-                        "- Reviews and global ratings are right‑skewed → few products dominate attention.\n"
-                        "- Discount% is moderately right‑skewed → fewer deep discounts."
-                    ),
-                },
-                {
-                    "file": "category_distribution_by_sentiment.png",
-                    "title": "Category Distribution by Sentiment",
-                    "inference": (
-                        "- Categories like Savory & Savory Snacks, Sweets & Desserts, and Gift Hampers dominate volume.\n"
-                        "- Positive sentiment prevails across categories; negatives are comparatively rare."
-                    ),
-                },
-            ]
-            if os.path.isdir(eda_img_dir):
-                for spec in img_specs:
-                    path = os.path.join(eda_img_dir, spec["file"])
-                    if os.path.exists(path):
-                        st.write("---")
-                        st.subheader(spec["title"])
-                        st.image(path, use_column_width=True)
-                        st.markdown(spec["inference"]) 
-        except Exception:
-            pass
-
 with st.expander("4) Modeling & Experiment Summary", expanded=True):
     st.markdown("**What the model does**")
     st.markdown("- Learns patterns from past product data to predict 'Underperforming' vs 'Not Underperforming'.")

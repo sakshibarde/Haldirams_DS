@@ -203,45 +203,30 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
             st.pyplot(fig, clear_figure=True)
             st.caption("Inference: If higher prices correlate with higher/lower ratings, pricing strategy may need revision.")
 
-        # Optional: show provided EDA images from artifacts/eda with short inferences
+        # Data-driven quick insights
         try:
-            eda_img_dir = os.path.join(ART_DIR, "eda")
-            img_specs = [
-                {
-                    "file": "correlation_heatmap.png",
-                    "title": "Correlation Heatmap",
-                    "inference": (
-                        "- Strong positive tie between `price_whole` and `mrp` (≈0.97).\n"
-                        "- Discount% shows mild negative relation with price (≈-0.4 range).\n"
-                        "- Ratings weakly related to other numerics — mostly independent."
-                    ),
-                },
-                {
-                    "file": "histograms.png",
-                    "title": "Histograms of Key Numeric Features",
-                    "inference": (
-                        "- Ratings cluster near 4.0 → mostly high ratings.\n"
-                        "- Reviews and global ratings are right‑skewed → few products dominate attention.\n"
-                        "- Discount% is moderately right‑skewed → fewer deep discounts."
-                    ),
-                },
-                {
-                    "file": "category_distribution_by_sentiment.png",
-                    "title": "Category Distribution by Sentiment",
-                    "inference": (
-                        "- Categories like Savory & Savory Snacks, Sweets & Desserts, and Gift Hampers dominate volume.\n"
-                        "- Positive sentiment prevails across categories; negatives are comparatively rare."
-                    ),
-                },
-            ]
-            if os.path.isdir(eda_img_dir):
-                for spec in img_specs:
-                    path = os.path.join(eda_img_dir, spec["file"])
-                    if os.path.exists(path):
-                        st.write("---")
-                        st.subheader(spec["title"])
-                        st.image(path, use_column_width=True)
-                        st.markdown(spec["inference"]) 
+            st.markdown("**Quick insights (data-driven)**")
+            missing_cells = int(eda_df.isna().sum().sum())
+            rating_mean = float(eda_df["rating"].dropna().mean()) if "rating" in eda_df.columns else None
+            rating_median = float(eda_df["rating"].dropna().median()) if "rating" in eda_df.columns else None
+            top_cats = []
+            if "category_reclassified" in eda_df.columns:
+                top_cats = eda_df["category_reclassified"].value_counts().head(3).index.tolist()
+            price_rating_corr = None
+            if set(["price_whole", "rating"]).issubset(eda_df.columns):
+                price_rating_corr = float(eda_df[["price_whole", "rating"]].dropna().corr(method="spearman").iloc[0, 1])
+
+            bullets = []
+            bullets.append(f"- Missing cells in dataset: {missing_cells}")
+            if rating_mean is not None and rating_median is not None:
+                bullets.append(f"- Rating center: mean ≈ {rating_mean:.2f}, median ≈ {rating_median:.2f}")
+            if top_cats:
+                bullets.append(f"- Top categories by count: {', '.join(top_cats)}")
+            if price_rating_corr is not None:
+                direction = "positive" if price_rating_corr > 0 else ("negative" if price_rating_corr < 0 else "near zero")
+                bullets.append(f"- Price vs rating Spearman correlation ≈ {price_rating_corr:.2f} ({direction})")
+            for b in bullets:
+                st.markdown(b)
         except Exception:
             pass
 

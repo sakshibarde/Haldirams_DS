@@ -114,7 +114,7 @@ with st.expander("2) Dataset overview & Feature glossary", expanded=True):
         st.dataframe(sample_df.head(10), use_container_width=True)
 
         # Simple profile: rows, columns, missingness
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Rows", len(sample_df))
         with col2:
@@ -203,50 +203,8 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
             st.pyplot(fig, clear_figure=True)
             st.caption("Inference: If higher prices correlate with higher/lower ratings, pricing strategy may need revision.")
 
-        # Optional: show provided EDA images from artifacts/eda with short inferences
-        try:
-            eda_img_dir = os.path.join(ART_DIR, "eda")
-            img_specs = [
-                {
-                    "file": "correlation_heatmap.png",
-                    "title": "Correlation Heatmap",
-                    "inference": (
-                        "- Strong positive tie between `price_whole` and `mrp` (≈0.97).\n"
-                        "- Discount% shows mild negative relation with price (≈-0.4 range).\n"
-                        "- Ratings weakly related to other numerics — mostly independent."
-                    ),
-                },
-                {
-                    "file": "histograms.png",
-                    "title": "Histograms of Key Numeric Features",
-                    "inference": (
-                        "- Ratings cluster near 4.0 → mostly high ratings.\n"
-                        "- Reviews and global ratings are right‑skewed → few products dominate attention.\n"
-                        "- Discount% is moderately right‑skewed → fewer deep discounts."
-                    ),
-                },
-                {
-                    "file": "category_distribution_by_sentiment.png",
-                    "title": "Category Distribution by Sentiment",
-                    "inference": (
-                        "- Categories like Savory & Savory Snacks, Sweets & Desserts, and Gift Hampers dominate volume.\n"
-                        "- Positive sentiment prevails across categories; negatives are comparatively rare."
-                    ),
-                },
-            ]
-            if os.path.isdir(eda_img_dir):
-                for spec in img_specs:
-                    path = os.path.join(eda_img_dir, spec["file"])
-                    if os.path.exists(path):
-                        st.write("---")
-                        st.subheader(spec["title"])
-                        st.image(path, use_column_width=True)
-                        st.markdown(spec["inference"]) 
-        except Exception:
-            pass
-
 with st.expander("4) Modeling & Experiment Summary", expanded=True):
-    st.markdown("**What the model does**")
+    st.markdown("**What the model does (plain-English)**")
     st.markdown("- Learns patterns from past product data to predict 'Underperforming' vs 'Not Underperforming'.")
     st.markdown("- Uses a preprocessing step to clean and encode features before modeling.")
 
@@ -307,7 +265,7 @@ with st.expander("4) Modeling & Experiment Summary", expanded=True):
         st.caption("Place `experiment_results.json` or `experiment_results.csv` in `dashboard/artifacts/` with columns: model, metric, value. Export from your notebook to populate this section.")
     else:
         # Friendly fallback: show the three-model comparison narrative (using current notebook results)
-        st.subheader("Three-model comparison")
+        st.subheader("Three-model comparison (from latest notebook run)")
         st.markdown("Below is a concise comparison of the three candidates on the test set. 'Tuned F1' refers to the model after hyperparameter tuning.")
 
         # Notebook-reported metrics
@@ -332,7 +290,7 @@ with st.expander("4) Modeling & Experiment Summary", expanded=True):
         st.markdown("- Simpler and more explainable than ensembles, making decisions easier to communicate and trust.")
         st.success("Selected best model: LogisticRegression")
 
-        # st.caption("Tip: You can still export exact metrics via `experiment_results.json`/`.csv` to power the charted comparison automatically.")
+        st.caption("Tip: You can still export exact metrics via `experiment_results.json`/`.csv` to power the charted comparison automatically.")
 tab_pred, tab_shap, tab_fair, tab_drift = st.tabs(["🔮 Predict", "🔎 SHAP Explanations", "⚖️ Fairness Audit", "🌊 Data Drift"])
 
 # --- Predict Tab ---

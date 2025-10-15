@@ -47,7 +47,7 @@ inference_pipeline, EXPECTED_COLS, REF, LOAD_ERR = load_artifacts()
 
 st.set_page_config(page_title="Haldiram's Performance Dashboard", layout="wide")
 st.title("📊 Haldiram's Product Performance — Predictions & Insights")
-# st.caption("A storytelling dashboard: Context → Data → EDA → Modeling → XAI → Fairness → Monitoring.")
+st.caption("A storytelling dashboard: Context → Data → EDA → Modeling → XAI → Fairness → Monitoring.")
 
 # --- Sidebar Controls ---
 with st.sidebar:
@@ -114,18 +114,18 @@ with st.expander("2) Dataset overview & Feature glossary", expanded=True):
         st.dataframe(sample_df.head(10), use_container_width=True)
 
         # Simple profile: rows, columns, missingness
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Rows", len(sample_df))
         with col2:
             st.metric("Columns", len(sample_df.columns))
-        # with col3:
-        #     st.metric("Missing cells", int(sample_df.isna().sum().sum()))
         with col3:
+            st.metric("Missing cells", int(sample_df.isna().sum().sum()))
+        with col4:
             num_cols = sum(pd.api.types.is_numeric_dtype(sample_df[c]) for c in sample_df.columns)
             st.metric("Numeric features", int(num_cols))
 
-        st.markdown("**Feature glossary**")
+        st.markdown("**Feature glossary (plain-English)**")
         glossary_items = {
             "rating": "Average product rating given by customers (0–5).",
             "price_whole": "Selling price shown to the customer.",
@@ -203,50 +203,8 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
             st.pyplot(fig, clear_figure=True)
             st.caption("Inference: If higher prices correlate with higher/lower ratings, pricing strategy may need revision.")
 
-        # Optional: show provided EDA images from artifacts/eda with short inferences
-        try:
-            eda_img_dir = os.path.join(ART_DIR, "eda")
-            img_specs = [
-                {
-                    "file": "correlation_heatmap.png",
-                    "title": "Correlation Heatmap",
-                    "inference": (
-                        "- Strong positive tie between `price_whole` and `mrp` (≈0.97).\n"
-                        "- Discount% shows mild negative relation with price (≈-0.4 range).\n"
-                        "- Ratings weakly related to other numerics — mostly independent."
-                    ),
-                },
-                {
-                    "file": "histograms.png",
-                    "title": "Histograms of Key Numeric Features",
-                    "inference": (
-                        "- Ratings cluster near 4.0 → mostly high ratings.\n"
-                        "- Reviews and global ratings are right‑skewed → few products dominate attention.\n"
-                        "- Discount% is moderately right‑skewed → fewer deep discounts."
-                    ),
-                },
-                {
-                    "file": "category_distribution_by_sentiment.png",
-                    "title": "Category Distribution by Sentiment",
-                    "inference": (
-                        "- Categories like Savory & Savory Snacks, Sweets & Desserts, and Gift Hampers dominate volume.\n"
-                        "- Positive sentiment prevails across categories; negatives are comparatively rare."
-                    ),
-                },
-            ]
-            if os.path.isdir(eda_img_dir):
-                for spec in img_specs:
-                    path = os.path.join(eda_img_dir, spec["file"])
-                    if os.path.exists(path):
-                        st.write("---")
-                        st.subheader(spec["title"])
-                        st.image(path, use_column_width=True)
-                        st.markdown(spec["inference"]) 
-        except Exception:
-            pass
-
 with st.expander("4) Modeling & Experiment Summary", expanded=True):
-    st.markdown("**What the model does**")
+    st.markdown("**What the model does (plain-English)**")
     st.markdown("- Learns patterns from past product data to predict 'Underperforming' vs 'Not Underperforming'.")
     st.markdown("- Uses a preprocessing step to clean and encode features before modeling.")
 
@@ -275,12 +233,7 @@ with st.expander("4) Modeling & Experiment Summary", expanded=True):
         except Exception:
             exp_df = None
 
-    core_models = {"LogisticRegression", "DecisionTree", "RandomForest"}
     if exp_df is not None and {"model", "metric", "value"}.issubset(exp_df.columns):
-        exp_df = exp_df.copy()
-        # Keep only the requested three models if present
-        if set(exp_df["model"].unique()) & core_models:
-            exp_df = exp_df[exp_df["model"].isin(core_models)]
         st.subheader("Experiment comparison (from notebooks)")
         st.dataframe(exp_df, use_container_width=True)
 
@@ -302,37 +255,9 @@ with st.expander("4) Modeling & Experiment Summary", expanded=True):
                 st.markdown(f"- For **{r['metric']}**, best model is **{r['model']}** (value: {r['value']:.3f}).")
         except Exception:
             pass
-        # Explicit selection statement
-        st.success("Selected best model: LogisticRegression (based on our comparative analysis and explainability considerations).")
         st.caption("Place `experiment_results.json` or `experiment_results.csv` in `dashboard/artifacts/` with columns: model, metric, value. Export from your notebook to populate this section.")
     else:
-        # Friendly fallback: show the three-model comparison narrative (using current notebook results)
-        st.subheader("Three-model comparison")
-        st.markdown("Below is a concise comparison of the three candidates on the test set. 'Tuned F1' refers to the model after hyperparameter tuning.")
-
-        # Notebook-reported metrics
-        comp_df = pd.DataFrame([
-            {"model": "LogisticRegression", "accuracy": 0.8992, "baseline_f1_underperf": 0.8286, "tuned_f1_underperf": 0.8514},
-            {"model": "DecisionTree",      "accuracy": 0.8824, "baseline_f1_underperf": 0.7778, "tuned_f1_underperf": 0.8058},
-            {"model": "RandomForest",       "accuracy": 0.9076, "baseline_f1_underperf": 0.8406, "tuned_f1_underperf": 0.8514},
-        ])
-        st.dataframe(comp_df, use_container_width=True)
-
-        cols = st.columns(3)
-        with cols[0]:
-            st.metric("Highest accuracy", "RandomForest", help="RandomForest shows the top overall accuracy (~0.908).")
-        with cols[1]:
-            st.metric("Top tuned F1 (tie)", "LogReg & RF", help="Both LogisticRegression and RandomForest reach ~0.851 tuned F1 for class 1.")
-        with cols[2]:
-            st.metric("Operational choice", "LogReg", help="Chosen for simplicity, stability, and ease of explanation.")
-
-        st.markdown("**Why we selected Logistic Regression**")
-        st.markdown("- Ties for best tuned F1 on the 'Underperforming' class (~0.851), which we prioritize for catching struggling products.")
-        st.markdown("- Demonstrated very strong recall for 'Underperforming' in the tuned evaluation, aligning with business needs to minimize misses.")
-        st.markdown("- Simpler and more explainable than ensembles, making decisions easier to communicate and trust.")
-        st.success("Selected best model: LogisticRegression")
-
-        # st.caption("Tip: You can still export exact metrics via `experiment_results.json`/`.csv` to power the charted comparison automatically.")
+        st.info("No experiment summary found. Export results from `notebooks/exp4_random_forest.ipynb` to `dashboard/artifacts/experiment_results.json` or `.csv` with columns: model, metric, value.")
 tab_pred, tab_shap, tab_fair, tab_drift = st.tabs(["🔮 Predict", "🔎 SHAP Explanations", "⚖️ Fairness Audit", "🌊 Data Drift"])
 
 # --- Predict Tab ---

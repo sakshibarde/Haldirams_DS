@@ -5,5 +5,7 @@ pandas==2.2.2
 pydantic==2.7.1
 shap
 streamlit
+pandas
+scikit-learn
 matplotlib
-seaborn
+shap

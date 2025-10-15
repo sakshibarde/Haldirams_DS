@@ -47,51 +47,9 @@ inference_pipeline, EXPECTED_COLS, REF, LOAD_ERR = load_artifacts()
 
 st.set_page_config(page_title="Haldiram's Performance Dashboard", layout="wide")
 st.title("📊 Haldiram's Product Performance — Predictions & Insights")
-# st.caption("A storytelling dashboard: Context → Data → EDA → Modeling → XAI → Fairness → Monitoring.")
+st.caption("A storytelling dashboard: Context → Data → EDA → Modeling → XAI → Fairness → Monitoring.")
 
-# --- Sidebar Controls ---
-with st.sidebar:
-    st.header("Controls")
-    uploaded = st.file_uploader("Upload CSV for analysis", type=["csv"])
-    sensitive_attr = st.text_input("Sensitive attribute (grouping column)", value="category_reclassified")
-    target_attr = st.text_input("Ground-truth column (optional)", value="is_underperforming")
-    threshold = st.slider("Probability threshold for 'Underperforming'", 0.0, 1.0, 0.5, 0.01)
-    st.divider()
-    st.write("Artifacts status:", "✅ `OK`" if inference_pipeline and EXPECTED_COLS else f"❌ `Error: {LOAD_ERR}`")
-
-# --- Helper Functions ---
-def align_columns(df, expected_cols):
-    """Aligns DataFrame columns to a predefined list, adding missing ones as None."""
-    for c in expected_cols:
-        if c not in df.columns:
-            df[c] = None
-    return df[expected_cols]
-
-def predict_df(df):
-    """Generates predictions and probabilities from the pipeline."""
-    proba = inference_pipeline.predict_proba(df)[:, 1]
-    preds = (proba >= threshold).astype(int)
-    return preds, proba
-
-def psi(reference, current, bins=10):
-    """Calculates the Population Stability Index (PSI) between two series."""
-    ref_clean = reference.dropna().astype(float)
-    cur_clean = current.dropna().astype(float)
-    if len(ref_clean) < 20 or len(cur_clean) < 20: return np.nan
-    
-    quantiles = np.linspace(0, 1, bins + 1)
-    edges = np.quantile(ref_clean, quantiles)
-    edges[0], edges[-1] = -np.inf, np.inf
-    
-    ref_counts = np.histogram(ref_clean, bins=edges)[0]
-    cur_counts = np.histogram(cur_clean, bins=edges)[0]
-    
-    ref_perc = np.where(ref_counts == 0, 1e-6, ref_counts / len(ref_clean))
-    cur_perc = np.where(cur_counts == 0, 1e-6, cur_counts / len(cur_clean))
-    
-    return float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
-
-# --- Tabs ---
+# --- Storytelling: Problem → Data → EDA → Modeling overview ---
 with st.expander("1) Problem Statement — what are we solving?", expanded=True):
     st.markdown(
         "- **Goal**: Identify which products are likely to be 'Underperforming' so teams can take timely actions (pricing, promotion, assortment).\n"
@@ -100,32 +58,35 @@ with st.expander("1) Problem Statement — what are we solving?", expanded=True)
     )
 
 with st.expander("2) Dataset overview & Feature glossary", expanded=True):
-    # Always use local dashboard data for storytelling
-    data_path = os.path.join(BASE_DIR, "data", "haldirams_cleaned.csv")
+    # Try reference sample, else example from local data if present
     sample_df = None
-    if os.path.exists(data_path):
-        try:
-            sample_df = pd.read_csv(data_path)
-        except Exception:
-            sample_df = None
+    if REF is not None:
+        sample_df = REF.copy()
+    else:
+        data_path = os.path.join(BASE_DIR, "data", "haldirams_cleaned.csv")
+        if os.path.exists(data_path):
+            try:
+                sample_df = pd.read_csv(data_path).head(300)
+            except Exception:
+                sample_df = None
 
     if sample_df is not None:
         st.write("A quick peek at the data (first 10 rows):")
         st.dataframe(sample_df.head(10), use_container_width=True)
 
         # Simple profile: rows, columns, missingness
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("Rows", len(sample_df))
         with col2:
             st.metric("Columns", len(sample_df.columns))
-        # with col3:
-        #     st.metric("Missing cells", int(sample_df.isna().sum().sum()))
         with col3:
+            st.metric("Missing cells", int(sample_df.isna().sum().sum()))
+        with col4:
             num_cols = sum(pd.api.types.is_numeric_dtype(sample_df[c]) for c in sample_df.columns)
             st.metric("Numeric features", int(num_cols))
 
-        st.markdown("**Feature glossary**")
+        st.markdown("**Feature glossary (plain-English)**")
         glossary_items = {
             "rating": "Average product rating given by customers (0–5).",
             "price_whole": "Selling price shown to the customer.",
@@ -151,14 +112,14 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
     except Exception:
         sns = None
 
-    # Always use local dashboard data for EDA
-    eda_df = None
-    data_path = os.path.join(BASE_DIR, "data", "haldirams_cleaned.csv")
-    if os.path.exists(data_path):
-        try:
-            eda_df = pd.read_csv(data_path)
-        except Exception:
-            eda_df = None
+    eda_df = REF if REF is not None else None
+    if eda_df is None:
+        data_path = os.path.join(BASE_DIR, "data", "haldirams_cleaned.csv")
+        if os.path.exists(data_path):
+            try:
+                eda_df = pd.read_csv(data_path).head(1000)
+            except Exception:
+                eda_df = None
 
     if eda_df is None:
         st.info("No data available for EDA. Upload a CSV to enable charts.")
@@ -203,136 +164,79 @@ with st.expander("3) Exploratory Data Analysis (EDA)", expanded=True):
             st.pyplot(fig, clear_figure=True)
             st.caption("Inference: If higher prices correlate with higher/lower ratings, pricing strategy may need revision.")
 
-        # Optional: show provided EDA images from artifacts/eda with short inferences
-        try:
-            eda_img_dir = os.path.join(ART_DIR, "eda")
-            img_specs = [
-                {
-                    "file": "correlation_heatmap.png",
-                    "title": "Correlation Heatmap",
-                    "inference": (
-                        "- Strong positive tie between `price_whole` and `mrp` (≈0.97).\n"
-                        "- Discount% shows mild negative relation with price (≈-0.4 range).\n"
-                        "- Ratings weakly related to other numerics — mostly independent."
-                    ),
-                },
-                {
-                    "file": "histograms.png",
-                    "title": "Histograms of Key Numeric Features",
-                    "inference": (
-                        "- Ratings cluster near 4.0 → mostly high ratings.\n"
-                        "- Reviews and global ratings are right‑skewed → few products dominate attention.\n"
-                        "- Discount% is moderately right‑skewed → fewer deep discounts."
-                    ),
-                },
-                {
-                    "file": "category_distribution_by_sentiment.png",
-                    "title": "Category Distribution by Sentiment",
-                    "inference": (
-                        "- Categories like Savory & Savory Snacks, Sweets & Desserts, and Gift Hampers dominate volume.\n"
-                        "- Positive sentiment prevails across categories; negatives are comparatively rare."
-                    ),
-                },
-            ]
-            if os.path.isdir(eda_img_dir):
-                for spec in img_specs:
-                    path = os.path.join(eda_img_dir, spec["file"])
-                    if os.path.exists(path):
-                        st.write("---")
-                        st.subheader(spec["title"])
-                        st.image(path, use_column_width=True)
-                        st.markdown(spec["inference"]) 
-        except Exception:
-            pass
-
 with st.expander("4) Modeling & Experiment Summary", expanded=True):
-    st.markdown("**What the model does**")
-    st.markdown("- Learns patterns from past product data to predict 'Underperforming' vs 'Not Underperforming'.")
-    st.markdown("- Uses a preprocessing step to clean and encode features before modeling.")
-
-    # Show currently loaded classifier from pipeline (if any)
-    if inference_pipeline is not None:
+    if inference_pipeline is None:
+        st.info("Model artifacts not found. Add artifacts to `dashboard/artifacts` to enable this section.")
+    else:
         try:
             model = inference_pipeline.named_steps.get('classifier', None)
+            preprocessor = inference_pipeline.named_steps.get('preprocessor', None)
+            st.markdown("**What the model does (plain-English)**")
+            st.markdown("- Learns patterns from past product data to predict 'Underperforming' vs 'Not Underperforming'.")
+            if preprocessor is not None:
+                st.markdown("- Uses a preprocessor to clean/encode features before modeling.")
             if model is not None:
-                st.markdown(f"- Current classifier in production pipeline: `{type(model).__name__}`")
-        except Exception:
-            pass
+                st.markdown(f"- Current classifier: `{type(model).__name__}`")
 
-    # Load precomputed experiment comparison exported from notebook (JSON or CSV)
-    exp_json = os.path.join(ART_DIR, "experiment_results.json")
-    exp_csv = os.path.join(ART_DIR, "experiment_results.csv")
-    exp_df = None
-    if os.path.exists(exp_json):
-        try:
-            with open(exp_json, "r") as f:
-                exp_df = pd.DataFrame(json.load(f))
-        except Exception:
-            exp_df = None
-    elif os.path.exists(exp_csv):
-        try:
-            exp_df = pd.read_csv(exp_csv)
-        except Exception:
-            exp_df = None
+            # If reference has target, show a quick sanity metric using a naive threshold over predictions on REF
+            if REF is not None and "is_underperforming" in REF.columns:
+                try:
+                    aligned_ref = align_columns(REF.copy(), EXPECTED_COLS)
+                    y_pred, y_proba = predict_df(aligned_ref)
+                    y_true = REF["is_underperforming"].astype(int)
+                    cm = confusion_matrix(y_true, y_pred)
+                    cm_df = pd.DataFrame(cm, index=["True: Not", "True: Under"], columns=["Pred: Not", "Pred: Under"])
+                    st.write("**Reference sanity check (Confusion Matrix)**")
+                    st.dataframe(cm_df, use_container_width=True)
+                    st.caption("Note: This is a quick check on reference data; true validation should be from held-out sets and tracked experiments.")
+                except Exception:
+                    pass
+        except Exception as e:
+            st.info(f"Could not introspect model details: {e}")
 
-    core_models = {"LogisticRegression", "DecisionTree", "RandomForest"}
-    if exp_df is not None and {"model", "metric", "value"}.issubset(exp_df.columns):
-        exp_df = exp_df.copy()
-        # Keep only the requested three models if present
-        if set(exp_df["model"].unique()) & core_models:
-            exp_df = exp_df[exp_df["model"].isin(core_models)]
-        st.subheader("Experiment comparison (from notebooks)")
-        st.dataframe(exp_df, use_container_width=True)
+# --- Sidebar Controls ---
+with st.sidebar:
+    st.header("Controls")
+    uploaded = st.file_uploader("Upload CSV for analysis", type=["csv"])
+    sensitive_attr = st.text_input("Sensitive attribute (grouping column)", value="category_reclassified")
+    target_attr = st.text_input("Ground-truth column (optional)", value="is_underperforming")
+    threshold = st.slider("Probability threshold for 'Underperforming'", 0.0, 1.0, 0.5, 0.01)
+    st.divider()
+    st.write("Artifacts status:", "✅ `OK`" if inference_pipeline and EXPECTED_COLS else f"❌ `Error: {LOAD_ERR}`")
 
-        # Simple chart: best metric per model (higher is better assumed)
-        try:
-            pivot = exp_df.pivot_table(index="model", columns="metric", values="value", aggfunc="mean")
-            fig, ax = plt.subplots()
-            pivot.plot(kind="bar", ax=ax)
-            ax.set_title("Model metrics comparison")
-            st.pyplot(fig, clear_figure=True)
-        except Exception:
-            pass
+# --- Helper Functions ---
+def align_columns(df, expected_cols):
+    """Aligns DataFrame columns to a predefined list, adding missing ones as None."""
+    for c in expected_cols:
+        if c not in df.columns:
+            df[c] = None
+    return df[expected_cols]
 
-        # Plain-English insights
-        st.markdown("**Insights**")
-        try:
-            best_rows = exp_df.sort_values("value", ascending=False).groupby("metric").head(1)
-            for _, r in best_rows.iterrows():
-                st.markdown(f"- For **{r['metric']}**, best model is **{r['model']}** (value: {r['value']:.3f}).")
-        except Exception:
-            pass
-        # Explicit selection statement
-        st.success("Selected best model: LogisticRegression (based on our comparative analysis and explainability considerations).")
-        st.caption("Place `experiment_results.json` or `experiment_results.csv` in `dashboard/artifacts/` with columns: model, metric, value. Export from your notebook to populate this section.")
-    else:
-        # Friendly fallback: show the three-model comparison narrative (using current notebook results)
-        st.subheader("Three-model comparison")
-        st.markdown("Below is a concise comparison of the three candidates on the test set. 'Tuned F1' refers to the model after hyperparameter tuning.")
+def predict_df(df):
+    """Generates predictions and probabilities from the pipeline."""
+    proba = inference_pipeline.predict_proba(df)[:, 1]
+    preds = (proba >= threshold).astype(int)
+    return preds, proba
 
-        # Notebook-reported metrics
-        comp_df = pd.DataFrame([
-            {"model": "LogisticRegression", "accuracy": 0.8992, "baseline_f1_underperf": 0.8286, "tuned_f1_underperf": 0.8514},
-            {"model": "DecisionTree",      "accuracy": 0.8824, "baseline_f1_underperf": 0.7778, "tuned_f1_underperf": 0.8058},
-            {"model": "RandomForest",       "accuracy": 0.9076, "baseline_f1_underperf": 0.8406, "tuned_f1_underperf": 0.8514},
-        ])
-        st.dataframe(comp_df, use_container_width=True)
+def psi(reference, current, bins=10):
+    """Calculates the Population Stability Index (PSI) between two series."""
+    ref_clean = reference.dropna().astype(float)
+    cur_clean = current.dropna().astype(float)
+    if len(ref_clean) < 20 or len(cur_clean) < 20: return np.nan
+    
+    quantiles = np.linspace(0, 1, bins + 1)
+    edges = np.quantile(ref_clean, quantiles)
+    edges[0], edges[-1] = -np.inf, np.inf
+    
+    ref_counts = np.histogram(ref_clean, bins=edges)[0]
+    cur_counts = np.histogram(cur_clean, bins=edges)[0]
+    
+    ref_perc = np.where(ref_counts == 0, 1e-6, ref_counts / len(ref_clean))
+    cur_perc = np.where(cur_counts == 0, 1e-6, cur_counts / len(cur_clean))
+    
+    return float(np.sum((cur_perc - ref_perc) * np.log(cur_perc / ref_perc)))
 
-        cols = st.columns(3)
-        with cols[0]:
-            st.metric("Highest accuracy", "RandomForest", help="RandomForest shows the top overall accuracy (~0.908).")
-        with cols[1]:
-            st.metric("Top tuned F1 (tie)", "LogReg & RF", help="Both LogisticRegression and RandomForest reach ~0.851 tuned F1 for class 1.")
-        with cols[2]:
-            st.metric("Operational choice", "LogReg", help="Chosen for simplicity, stability, and ease of explanation.")
-
-        st.markdown("**Why we selected Logistic Regression**")
-        st.markdown("- Ties for best tuned F1 on the 'Underperforming' class (~0.851), which we prioritize for catching struggling products.")
-        st.markdown("- Demonstrated very strong recall for 'Underperforming' in the tuned evaluation, aligning with business needs to minimize misses.")
-        st.markdown("- Simpler and more explainable than ensembles, making decisions easier to communicate and trust.")
-        st.success("Selected best model: LogisticRegression")
-
-        # st.caption("Tip: You can still export exact metrics via `experiment_results.json`/`.csv` to power the charted comparison automatically.")
+# --- Tabs ---
 tab_pred, tab_shap, tab_fair, tab_drift = st.tabs(["🔮 Predict", "🔎 SHAP Explanations", "⚖️ Fairness Audit", "🌊 Data Drift"])
 
 # --- Predict Tab ---
