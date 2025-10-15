@@ -13,9 +13,10 @@ from sklearn.metrics import classification_report, confusion_matrix
 import shap
 from scipy.stats import ks_2samp
 
-# --- Paths & Lazy Loading ---
-# Assumes an 'artifacts' folder is in the same directory as this script.
-ART_DIR = os.path.join(os.path.dirname(__file__), "artifacts")
+# --- Paths & Lazy Loading (CORRECTED VERSION) ---
+# Construct the absolute path to the artifacts directory relative to this script's location
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ART_DIR = os.path.join(BASE_DIR, "artifacts")
 PIPE_PATH = os.path.join(ART_DIR, "inference_pipeline.joblib")
 COLS_PATH = os.path.join(ART_DIR, "expected_columns.json")
 REF_PATH = os.path.join(ART_DIR, "reference_sample.csv")
